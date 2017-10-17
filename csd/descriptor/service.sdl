@@ -1,7 +1,7 @@
 {
   "name": "NIFI",
   "label": "NiFi",
-  "description": "Apache's NiFi service. <span class=\"error\">Requires Java 8.</span>",
+  "description": "Apache's NiFi service. <span class=\"error\">Requires Java 8 and Kerberized CDH</span>",
 
   "version": "0.1.0",
 
@@ -42,6 +42,8 @@
     "NIFI_SERVER"
   ],
 
+  "kerberos": "true",
+
   "parameters": [
     {
       "name": "java_home",
@@ -64,6 +66,53 @@
       "type": "path",
       "pathType": "localDataDir",
       "mode": "0750"
+    },
+
+    {
+      "name": "login_identity_providers_kerberos_default_realm",
+      "label": "Login Kerberos Identity Provider Default Realm",
+      "description": "Default realm to provide when user enters incomplete user principal.",
+      "configName": "Default Realm",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "name": "login_identity_providers_kerberos_kerberos_config_file",
+      "label": "Login Kerberos Identity Provider Kerberos Config File",
+      "description": "Absolute path to Kerberos client configuration file.",
+      "configName": "Kerberos Config File",
+      "required": false,
+      "type": "string"
+    },
+    {
+      "name": "login_identity_providers_kerberos_authentication_expiration",
+      "label": "Login Kerberos Identity Provider Authentication Expiration",
+      "description": "The duration of how long the user authentication is valid for. If the user never logs out, they will be required to log back in following this duration.",
+      "configName": "Authentication Expiration",
+      "required": false,
+      "type": "long",
+      "unit": "hours",
+      "min": 1,
+      "default": "8"
+    },
+
+    {
+      "name": "nifi_security_user_authorizer",
+      "label": "Security User Authorizer",
+      "description": "The identififer of the desired authorizer in authorizers.xml (or safety valve).",
+      "configName": "nifi.security.user.authorizer",
+      "required": true,
+      "type": "string",
+      "default": "managed-authorizer"
+    },
+    {
+      "name": "nifi_security_user_login_identity_provider",
+      "label": "Security User Login Identity Provider",
+      "description": "The identififer of the desired Login Identity Provider in login-identity-provider.xml (or safety valve).",
+      "configName": "nifi.security.user.login.identity.provider",
+      "required": false,
+      "type": "string",
+      "conformRegex": "kerberos-provider|"
     }
   ],
 
@@ -223,6 +272,13 @@
           "NIFI_LOG_DIR": "/var/log/nifi"
         }
       },
+      "kerberosPrincipals": [
+        {
+          "name": "NIFI_PRINCIPAL",
+          "primary": "${principal}",
+          "instance": "${host}"
+        }
+      ],
       "externalLink" : {
         "name" : "webserver_web_ui",
         "label" : "NiFi/HTTP UI",
@@ -747,6 +803,7 @@
           "label": "Authorizers File Access Policy Provider Initial Admin Identity", 
           "description": "The identity of an initial admin user that will be granted access to the UI and given the ability to create additional users, groups, and policies. The value of this property could be a DN when using certificates or LDAP, or a Kerberos principal. This property will only be used when there are no other policies defined. If this property is specified then a Legacy Authorized Users File can not be specified. NOTE: Any identity mapping rules specified in nifi.properties will also be applied to the initial admin identity, so the value should be the unmapped identity. This identity must be found in the configured User Group Provider.",
           "configName": "Initial Admin Identity",
+          "configurableInWizard": true,
           "required": true,
           "type": "string"
         },
@@ -771,6 +828,7 @@
           "label": "Authorizers File User Group Provider Initial Identity 1",
           "description": "The <bd>umapped</bd> identity of a users and systems to seed the Users File. Use the safety-valve to add additional ones (key: Initial Identity [unique id], value: )",
           "configName": "Initial User Identity 1",
+          "configurableInWizard": true,
           "required": "true",
           "type": "string"
         },
@@ -785,25 +843,6 @@
           "min": 1,
           "softMin": 20,
           "default": 20
-        },
-        {
-          "name": "login_identity_providers_kerberos_default_realm",
-          "label": "Login Kerberos Identity Provider Default Realm",
-          "description": "Default realm to provide when user enters incomplete user principal.",
-          "configName": "Default Realm",
-          "required": false,
-          "type": "string",
-          "default": "HADOOP.APACHE.ORG"
-        },
-        {
-          "name": "login_identity_providers_kerberos_authentication_expiration",
-          "label": "Login Kerberos Identity Provider Authentication Expiration",
-          "description": "The duration of how long the user authentication is valid for. If the user never logs out, they will be required to log back in following this duration.",
-          "required": false,
-          "type": "long",
-          "unit": "hours",
-          "min": 1,
-          "default": "12"
         },
         {
           "name": "nifi_flow_configuration_archive_enabled",
@@ -930,24 +969,6 @@
           "required": true,
           "type": "string",
           "default": ";LOCK_TIMEOUT=25000;WRITE_DELAY=0;AUTO_SERVER=FALSE"
-        },
-        {
-          "name": "nifi_security_user_authorizer",
-          "label": "Security User Authorizer",
-          "description": "The identififer of the desired authorizer in authorizers.xml (or safety valve).",
-          "configName": "nifi.security.user.authorizer",
-          "required": true,
-          "type": "string",
-          "default": "managed-authorizer"
-        },
-        {
-          "name": "nifi_security_user_login_identity_provider",
-          "label": "Security User Login Identity Provider",
-          "description": "The identififer of the desired Login Identity Provider in login-identity-provider.xml (or safety valve).",
-          "configName": "nifi.security.user.login.identity.provider",
-          "required": false,
-          "type": "string",
-          "conformRegex": "kerberos-provider|"
         },
         {
           "name": "nifi_flowfile_repository_implementation",
@@ -1464,6 +1485,7 @@
            "label": "Security Sensitive Prop Key",
            "description": "This is the password used to encrypt any sensitive property values that are configured in processors. By default, it is blank, but the system administrator should provide a value for it. It can be a string of any length, although the recommended minimum length is 10 characters. Be aware that once this password is set and one or more sensitive processor properties have been configured, this password should not be changed.",
            "configName": "nifi.sensitive.props.key",
+           "configurableInWizard": true,
            "sensitive": true,
            "required": true,
            "type": "password"
