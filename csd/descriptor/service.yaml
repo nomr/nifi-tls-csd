@@ -135,7 +135,7 @@ roles:
     configurableInWizard: true
     sensitive: true
     type: password
-    default: F0UjXLEgeQiNa3JP5E2h
+    initType: randomBase64
 
   configWriter:
     generators:
