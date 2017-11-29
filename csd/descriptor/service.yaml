@@ -10,7 +10,7 @@ compatibility:
 
 icon: images/icon.png
 
-inExpressWizard: false
+inExpressWizard: true
 
 runAs:
   user: nifi-ca
@@ -54,7 +54,7 @@ parameters:
   configurableInWizard: true
   sensitive: true
   type: password
-  default: jeuKGCg9Wef6QKKxVy62
+  initType: randomBase64
 - name: tls_dn_prefix
   configName: dnPrefix
   label: The DN prefix for the certificate
