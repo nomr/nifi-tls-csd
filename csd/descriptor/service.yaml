@@ -10,7 +10,7 @@ compatibility:
 
 icon: images/icon.png
 
-inExpressWizard: false
+inExpressWizard: true
 
 runAs:
   user: nifi-ca
@@ -54,7 +54,7 @@ parameters:
   configurableInWizard: true
   sensitive: true
   type: password
-  default: jeuKGCg9Wef6QKKxVy62
+  initType: randomBase64
 - name: tls_dn_prefix
   configName: dnPrefix
   label: The DN prefix for the certificate
@@ -135,7 +135,14 @@ roles:
     configurableInWizard: true
     sensitive: true
     type: password
-    default: F0UjXLEgeQiNa3JP5E2h
+    initType: randomBase64
+  - name: tls_subject_alternate_names
+    configName: domainAlternativeNames
+    label: Domain Alternative Names
+    description: The alternative domains used in the TLS certificates.
+    required: false
+    type: uri_array
+
 
   configWriter:
     generators:
@@ -148,6 +155,7 @@ roles:
       - tls_token
       - tls_keystore_location
       - tls_keystore_password
+      - tls_subject_alternate_names
       additionalConfigs:
       - {key: days, value: '1095'}
       - {key: keySize, value: '2048'}
