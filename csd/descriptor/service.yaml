@@ -136,6 +136,13 @@ roles:
     sensitive: true
     type: password
     initType: randomBase64
+  - name: tls_subject_alternate_names
+    configName: domainAlternativeNames
+    label: Domain Alternative Names
+    description: The alternative domains used in the TLS certificates.
+    required: false
+    type: uri_array
+
 
   configWriter:
     generators:
@@ -148,6 +155,7 @@ roles:
       - tls_token
       - tls_keystore_location
       - tls_keystore_password
+      - tls_subject_alternate_names
       additionalConfigs:
       - {key: days, value: '1095'}
       - {key: keySize, value: '2048'}
