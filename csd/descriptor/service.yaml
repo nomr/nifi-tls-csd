@@ -37,20 +37,75 @@ commands:
   runMode: single
 
 parameters:
-- name: tls_token
-  configName: token
-  label: Client-Server Token
-  description: The token to prevent MITM attacks.
-  required: true
-  configurableInWizard: true
-  sensitive: true
-  type: password
-  initType: randomBase64
+- name: csr_name_org
+  configName: CA_O
+  label: CA's X.509 Organization
+  description: The X.509 attributes for the certificate, i.e.
+    country(C), state or province(S), locality(L), organization(O),
+    organizational unit(OU), and the common name(CN). All fields are
+    optional, but if a CN is not defined, then CFSSL will default to
+    the machine's hostname.
+  type: string
+- name: csr_name_location
+  configName: CA_L
+  label: CA's X.509 Location
+  description: The X.509 attributes for the certificate, i.e.
+    country(C), state or province(S), locality(L), organization(O),
+    organizational unit(OU), and the common name(CN). All fields are
+    optional, but if a CN is not defined, then CFSSL will default to
+    the machine's hostname.
+  type: string
+- name: csr_name_state
+  configName: CA_ST
+  label: CA's X.509 State or Province
+  description: The X.509 attributes for the certificate, i.e.
+    country(C), state or province(S), locality(L), organization(O),
+    organizational unit(OU), and the common name(CN). All fields are
+    optional, but if a CN is not defined, then CFSSL will default to
+    the machine's hostname.
+  type: string
+- name: csr_name_country
+  configName: CA_C
+  label: CA's X.509 Country
+  description: The X.509 attributes for the certificate, i.e.
+    country(C), state or province(S), locality(L), organization(O),
+    organizational unit(OU), and the common name(CN). All fields are
+    optional, but if a CN is not defined, then CFSSL will default to
+    the machine's hostname.
+  type: string
+
+- name: sign_default_expiry
+  configName: SIGNING_DEFAULT_EXPIRY
+  label: Default Signing Policy Expiry
+  description: How long the signed certificates are valid.
+  type: long
+  min: 1
+  softMin: 128
+  unit: hours
+  default: 8760
+
+- name: sign_default_usages
+  configName: SIGNING_DEFAULT_USAGES
+  label: Default Signing Policy Usages
+  description: 'The usages allowed in the default policy. The following are
+    acceptable key usages: signing, digital signature, content committment,
+    key encipherment, key agreement, data encipherment, cert sign, crl sign,
+    encipher only, decipher only. The following are acceptable extended
+    key usages: any, server auth, client auth, code signing,
+    email protection, s/mime, ipsec end system, ipsec tunnel, ipsec user,
+    timestamping, ocsp signing, microsoft sgc, netscape sgc.'
+  type: string_array
+  separator: '","'
+  default:
+  - signing
+  - key encipherment
+  - server auth
+  - client auth
 
 roles:
 - name: CFSSL_ROOT_CA
   label: Root CA
-  pluralLabel: Root Certificate of Authority #maxInstances=1
+  pluralLabel: Root Certificate of Authority
 
   externalLink:
     name: webserver_web_ui
@@ -58,9 +113,10 @@ roles:
     url: 'https://${host}:${tls_port}'
 
   startRunner:
-    args: [run]
     environmentVariables:
+      CFSSL_AUTH_DEFAULT_KEY_BASE64: "${auth_default_key}"
     program: scripts/control.sh
+    args: [root-ca-run]
 
   commands:
   - name: root_ca_init
@@ -86,6 +142,16 @@ roles:
     modifiable: false
 
   parameters:
+  - name: auth_default_key
+    configName: CFSSL_AUTH_DEFAULT_KEY_BASE64
+    label: CA's Default Authentication Token
+    description: The token to prevent MITM attacks.
+    required: true
+    configurableInWizard: true
+    sensitive: true
+    type: password
+    conformRegex: '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
+
   - name: csr_hosts
     configName: CSR_SAN
     label: CA's Subject Alternate Name
@@ -109,42 +175,6 @@ roles:
     maxLength: 1
     default:
     - Certificate of Authority
-  - name: csr_name_org
-    configName: CA_O
-    label: CA's X.509 Organization
-    description: The X.509 attributes for the certificate, i.e.
-      country(C), state or province(S), locality(L), organization(O),
-      organizational unit(OU), and the common name(CN). All fields are
-      optional, but if a CN is not defined, then CFSSL will default to
-      the machine's hostname.
-    type: string
-  - name: csr_name_location
-    configName: CA_L
-    label: CA's X.509 Location
-    description: The X.509 attributes for the certificate, i.e.
-      country(C), state or province(S), locality(L), organization(O),
-      organizational unit(OU), and the common name(CN). All fields are
-      optional, but if a CN is not defined, then CFSSL will default to
-      the machine's hostname.
-    type: string
-  - name: csr_name_state
-    configName: CA_ST
-    label: CA's X.509 State or Province
-    description: The X.509 attributes for the certificate, i.e.
-      country(C), state or province(S), locality(L), organization(O),
-      organizational unit(OU), and the common name(CN). All fields are
-      optional, but if a CN is not defined, then CFSSL will default to
-      the machine's hostname.
-    type: string
-  - name: csr_name_country
-    configName: CA_C
-    label: CA's X.509 Country
-    description: The X.509 attributes for the certificate, i.e.
-      country(C), state or province(S), locality(L), organization(O),
-      organizational unit(OU), and the common name(CN). All fields are
-      optional, but if a CN is not defined, then CFSSL will default to
-      the machine's hostname.
-    type: string
 
   - name: csr_key_algo
     configName: CSR_KEY_ALGO
@@ -172,16 +202,6 @@ roles:
     min: 1024
     default: 23443
 
-  - name: tls_keystore_password
-    configName: keyStorePassword
-    label: CA Server KeyStore File Password
-    description: The CA Server keystore password
-    required: true
-    configurableInWizard: true
-    sensitive: true
-    type: password
-    initType: randomBase64
-
   configWriter:
     generators:
     - filename: root-ca-csr.vars
@@ -195,6 +215,13 @@ roles:
       - csr_name_location
       - csr_name_org
       - csr_name_org_unit
+
+    - filename: root-ca-config.vars
+      configFormat: properties
+      includedParams:
+      - sign_default_expiry
+      - sign_default_usages
+
 
 #gateway:
 #  alternatives:

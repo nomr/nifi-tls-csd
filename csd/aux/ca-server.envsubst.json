@@ -1,0 +1,15 @@
+{
+    "auth_keys": {
+        "default": {
+            "type": "standard",
+            "key": "env:CFSSL_AUTH_DEFAULT_KEY_HEX"
+        }
+    },
+    "signing": {
+        "default": {
+            "auth_key": "default",
+            "expiry": "${CFSSL_SIGNING_DEFAULT_EXPIRY}h",
+            "usages": [ "${CFSSL_SIGNING_DEFAULT_USAGES}" ]
+	}
+    }
+}

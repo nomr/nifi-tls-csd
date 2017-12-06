@@ -40,19 +40,27 @@ envsubst_all() {
     done
 }
 
+base64_to_hex() {
+    base64 -d \
+      | od -t x8 \
+      | cut -s -d' ' -f2- \
+      | sed -e ':a;N;$!ba;s/\n/ /g' -e 's/ //g' <<< $1
+}
+
 load_vars() {
     local prefix=$1
     local file=$2.vars
- 
+
     eval $(sed -e 's/ /\\ /g' \
                -e 's/"/\\"/g' \
                -e 's/^/export ${prefix}_/' $file)
 }
 
 move_aux_files() {
-    local in=aux/ca-csr.envsubst.json
-    local out=${CONF_DIR}/root-ca-csr.envsubst.json
-    mv_if_exists $in $out
+    local suffix=envsubst.json
+
+    mv_if_exists aux/ca-csr.${suffix} ${CONF_DIR}/root-ca-csr.${suffix}
+    mv_if_exists aux/ca-server.${suffix} ${CONF_DIR}/root-ca-config.${suffix}
 }
 
 create_root_ca_csr_json() {
@@ -61,8 +69,8 @@ create_root_ca_csr_json() {
     envsubst_all
 
     # Clean optional lines
-    grep -v '${CFSSL_.*}' root-ca-csr.json > root-ca-csr.json.clean
-    mv root-ca-csr.json.clean root-ca-csr.json
+    in=root-ca-csr.json
+    grep -v '${CFSSL_.*}' $in > ${in}.clean && mv ${in}.clean ${in}
 }
 
 root_ca_init() {
@@ -70,8 +78,20 @@ root_ca_init() {
     cfssl gencert --initca=true root-ca-csr.json | /opt/cloudera/parcels/CFSSL/bin/cfssljson -bare ~/ca
 }
 
+create_root_ca_config_json() {
+    load_vars CFSSL root-ca-config
+    move_aux_files
+    envsubst_all
+
+    # Clean optional lines
+    in=root-ca-config.json
+    grep -v '${CFSSL_.*}' $in > ${in}.clean && mv ${in}.clean ${in}
+}
 root_ca_run() {
-    return 0
+    create_root_ca_config_json
+
+    export CFSSL_AUTH_DEFAULT_KEY_HEX=$(base64_to_hex $CFSSL_AUTH_DEFAULT_KEY_BASE64)
+    exec cfssl serve -ca ~/ca.pem -ca-key ~/ca-key.pem -config $CONF_DIR/root-ca-config.json
 }
 
 program=$1
