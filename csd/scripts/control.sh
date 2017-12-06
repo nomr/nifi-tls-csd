@@ -4,73 +4,86 @@ set -efu -o pipefail
 
 . ${COMMON_SCRIPT}
 
+export PATH=$CFSSL_HOME/bin:$PATH
 
-hadoop_xml_to_json()
-{
-  xsltproc ${CDH_NIFI_XSLT}/hadoop2element-value.xslt server.hadoop_xml > server.xml
-  xsltproc ${CDH_NIFI_XSLT}/xml2json.xslt server.xml | ${CDH_NIFI_JQ} '
-    .configuration |
-    .port=(.port| tonumber) |
-    .days=(.days | tonumber) |
-    .keySize=(.keySize | tonumber) |
-    .reorderDn=(.reorderDn == "true")' > server.json
-}
-
-locate_java8_home() {
-    if [ -z "${JAVA_HOME}" ]; then
-        BIGTOP_JAVA_MAJOR=8
-        locate_java_home
-    fi
-
-    JAVA="${JAVA_HOME}/bin/java"
-    TOOLS_JAR=""
-
-    # if command is env, attempt to add more to the classpath
-    if [ "$1" = "env" ]; then
-        [ "x${TOOLS_JAR}" =  "x" ] && [ -n "${JAVA_HOME}" ] && TOOLS_JAR=$(find -H "${JAVA_HOME}" -name "tools.jar")
-        [ "x${TOOLS_JAR}" =  "x" ] && [ -n "${JAVA_HOME}" ] && TOOLS_JAR=$(find -H "${JAVA_HOME}" -name "classes.jar")
-        if [ "x${TOOLS_JAR}" =  "x" ]; then
-             warn "Could not locate tools.jar or classes.jar. Please set manually to avail all command features."
-        fi
+append_and_delete() {
+    local in=$1
+    local out=$2
+    if [ -e $in ]; then
+      cat $in >> $out
+      rm -f $in
     fi
 }
 
-init() {
-    # NiFi 1.4.0 was compiled with 1.8.0
-    locate_java8_home $1
-
-    # Simulate NIFI_TOOLKIT_HOME
-    NIFI_TOOLKIT_HOME=$(pwd)
-    [ -e lib ] || ln -s ${CDH_NIFI_TOOLKIT_HOME}/lib .
-
-    hadoop_xml_to_json
+mv_if_exists() {
+    if [ -e $1 ]; then
+      mv $1 $2
+    fi
 }
 
-run() {
-    LIBS="${NIFI_TOOLKIT_HOME}/lib/*"
-
-    CLASSPATH=".:${LIBS}"
-
-    export JAVA_HOME="$JAVA_HOME"
-    export NIFI_TOOLKIT_HOME="$NIFI_TOOLKIT_HOME"
-
-    umask 0077
-    exec "${JAVA}" -cp "${CLASSPATH}" ${JAVA_OPTS:--Xms12m -Xmx24m} ${CSD_JAVA_OPTS} org.apache.nifi.toolkit.tls.TlsToolkitMain server --configJsonIn server.json -F
+get_property() {
+    local file=$1
+    local key=$2
+    local line=$(grep "$key=" ${file}.properties | tail -1)
+    echo "${line/$key=/}"
 }
 
+envsubst_all() {
+    local shell_format="\$CONF_DIR,\$ZK_QUORUM"
+    for i in ${!CFSSL_*}; do
+        shell_format="${shell_format},\$$i"
+    done
 
-main() {
-    init "$1"
-    run "$@"
+    for i in $(find . -maxdepth 1 -type f -name '*.envsubst*'); do
+        cat $i | envsubst $shell_format > ${i/\.envsubst/}
+        rm -f $i
+    done
 }
 
-case "$1" in
-    run)
-        main "$@"
+load_vars() {
+    local prefix=$1
+    local file=$2.vars
+ 
+    eval $(sed -e 's/ /\\ /g' \
+               -e 's/"/\\"/g' \
+               -e 's/^/export ${prefix}_/' $file)
+}
+
+move_aux_files() {
+    local in=aux/ca-csr.envsubst.json
+    local out=${CONF_DIR}/root-ca-csr.envsubst.json
+    mv_if_exists $in $out
+}
+
+create_root_ca_csr_json() {
+    load_vars CFSSL root-ca-csr
+    move_aux_files
+    envsubst_all
+
+    # Clean optional lines
+    grep -v '${CFSSL_.*}' root-ca-csr.json > root-ca-csr.json.clean
+    mv root-ca-csr.json.clean root-ca-csr.json
+}
+
+root_ca_init() {
+    create_root_ca_csr_json
+    cfssl gencert --initca=true root-ca-csr.json | /opt/cloudera/parcels/CFSSL/bin/cfssljson -bare ~/ca
+}
+
+root_ca_run() {
+    return 0
+}
+
+program=$1
+shift
+case "$program" in
+    root-ca-init)
+        root_ca_init "$@"
         ;;
-    deploy)
+    root-ca-run)
+        root_ca_run "$@"
         ;;
     *)
-        echo "Usage nifi {stop|run|status|dump|env}"
+        echo "Usage control.sh <root-ca-init|root-ca-run> ..."
         ;;
 esac
