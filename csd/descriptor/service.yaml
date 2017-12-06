@@ -162,7 +162,7 @@ roles:
     default:
 
   - name: csr_name_org_unit
-    configName: CSR_OU_0
+    configName: CSR_OU
     label: CA's X.509 Organizational Unit
     description: The X.509 attributes for the certificate, i.e.
       country(C), state or province(S), locality(L), organization(O),

@@ -64,8 +64,14 @@ move_aux_files() {
 }
 
 create_root_ca_csr_json() {
+    # Load/Edit Vars
     load_vars CFSSL root-ca-csr
+    export CFSSL_CSR_OU_0="${CFSSL_CSR_OU}"
+
+    # Get Aux Files
     move_aux_files
+
+    # Render
     envsubst_all
 
     # Clean optional lines
