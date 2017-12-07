@@ -66,7 +66,6 @@ move_aux_files() {
 create_root_ca_csr_json() {
     # Load/Edit Vars
     load_vars CFSSL root-ca-csr
-    export CFSSL_CSR_OU_0="${CFSSL_CSR_OU}"
 
     # Get Aux Files
     move_aux_files
@@ -93,11 +92,16 @@ create_root_ca_config_json() {
     in=root-ca-config.json
     grep -v '${CFSSL_.*}' $in > ${in}.clean && mv ${in}.clean ${in}
 }
+
 root_ca_run() {
     create_root_ca_config_json
 
     export CFSSL_AUTH_DEFAULT_KEY_HEX=$(base64_to_hex $CFSSL_AUTH_DEFAULT_KEY_BASE64)
     exec cfssl serve -ca ~/ca.pem -ca-key ~/ca-key.pem -config $CONF_DIR/root-ca-config.json
+}
+
+client_deploy() {
+    return 0
 }
 
 program=$1
@@ -108,6 +112,9 @@ case "$program" in
         ;;
     root-ca-run)
         root_ca_run "$@"
+        ;;
+    client-deploy)
+        client_deploy "$@"
         ;;
     *)
         echo "Usage control.sh <root-ca-init|root-ca-run> ..."

@@ -20,7 +20,7 @@ runAs:
 maxInstances: 1
 
 parcel:
-  repoUrl: https://github.com/nomr/cfssl-parcel/releases/download/v1.2.0+0.0.1
+  repoUrl: https://github.com/nomr/cfssl-parcel/releases/download/v1.2.0+0.0.2
   requiredTags: [pki]
 
 serviceDependencies:
@@ -162,17 +162,16 @@ roles:
     default:
 
   - name: csr_name_org_unit
-    configName: CSR_OU
-    label: CA's X.509 Organizational Unit
+    configName: CSR_OUS
+    label: CA's X.509 Additional Organizational Units
     description: The X.509 attributes for the certificate, i.e.
       country(C), state or province(S), locality(L), organization(O),
       organizational unit(OU), and the common name(CN). All fields are
       optional, but if a CN is not defined, then CFSSL will default to
       the machine's hostname.
     type: string_array
-    separator: ';'
+    separator: '"},{"OU":"'
     minLength: 1
-    maxLength: 1
     default:
     - Certificate of Authority
 
@@ -222,8 +221,7 @@ roles:
       - sign_default_expiry
       - sign_default_usages
 
-
-#gateway:
+gateway:
 #  alternatives:
 #    name: tls-conf
 #    priority: 50
