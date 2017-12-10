@@ -1,0 +1,19 @@
+{
+    "auth_keys": {
+        "default": {
+            "type": "standard",
+            "key": "${CFSSL_DEFAULT_AUTH_KEY}"
+        }
+    },
+    "remotes": {
+        "default": "${CFSSL_DEFAULT_HOST_PORT}"
+    },
+    "signing": {
+        "default": {
+            "auth_remote": {
+                "remote": "default",
+                "auth_key": "default"
+            }
+	}
+    }
+}

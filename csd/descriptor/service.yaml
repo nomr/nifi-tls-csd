@@ -110,11 +110,12 @@ roles:
   externalLink:
     name: webserver_web_ui
     label: CA Server
-    url: 'https://${host}:${tls_port}'
+    url: 'http://${host}:${root_ca_port}'
 
   startRunner:
     environmentVariables:
       CFSSL_AUTH_DEFAULT_KEY_BASE64: "${auth_default_key}"
+      CFSSL_CA_PORT: "${root_ca_port}"
     program: scripts/control.sh
     args: [root-ca-run]
 
@@ -192,7 +193,7 @@ roles:
     type: long
     default: 4096
 
-  - name: tls_port
+  - name: root_ca_port
     configName: port
     label: CA Server Port
     description: The port for the Certificate Authority to listen on.
@@ -222,32 +223,48 @@ roles:
       - sign_default_usages
 
 gateway:
-#  alternatives:
-#    name: tls-conf
-#    priority: 50
-#    linkRoot: /etc/pki/cfssl
-#  scriptRunner:
-#    program: scripts/cc.sh
-#    args: [deploy]
-#  configWriter:
-#    auxConfigGenerators:
-#    - filename: tls-conf/client.sh
-#      sourceFilename: scripts/client.sh
-#    generators:
-#    - filename: tls-conf/tls-service.hadoop_xml
-#      configFormat: hadoop_xml
-#      includedParams:
-#      - tls_token
-#      additionalConfigs:
-#      - {key: days, value: '1095'}
-#      - {key: keySize, value: '2048'}
-#      - {key: keyPairAlgorithm, value: RSA}
-#      - {key: signingAlgorithm, value: SHA256WITHRSA}
-#      - {key: keyStoreType, value: jks}
-#      - {key: caHostname, value: '@@CA_HOSTNAME@@'}
-#      - {key: port, value: '@@CA_PORT@@'}
-#      - {key: reorderDn, value: true}
-#    peerConfigGenerators:
-#    - roleName: CFSSL_ROOT_CA
-#      filename: tls-conf/tls-service.properties
-#      params: [tls_port]
+  alternatives:
+    name: pki-conf
+    priority: 50
+    linkRoot: /etc/pki/cfssl
+  scriptRunner:
+    program: scripts/cc.sh
+    args: [deploy]
+
+  parameters:
+  - name: gw_update_ca_trust
+    configName: UPDATE_CA_TRUST
+    label: Add Root CA to Operating System truststore
+    description: Will deploy the RootCA certificate to
+      /etc/pki/ca-trust/source/anchors and call update-ca-trusts. This
+      also updates the Java Truststore at /etc/pki/java/cacerts.
+    required: true
+    type: boolean
+    default: true
+
+  - name: gw_truststore_location
+    configName: TRUSTSTORE_LOCATION
+    label: GW Truststore Location
+    description: Location of the (existing) trustore to load the
+      Root CA certificates. We will use alias 'cfssl-default' and use
+      Java's default truststore password.
+    required: false
+    type: path
+    pathType: localDataFile
+
+  configWriter:
+    auxConfigGenerators:
+    - filename: pki-conf/ca-client.envsubst.json
+      sourceFilename: aux/ca-client.envsubst.json
+    generators:
+    - filename: pki-conf/gw.vars
+      configFormat: properties
+      includedParams:
+      - gw_update_ca_trust
+      - gw_truststore_location
+    peerConfigGenerators:
+    - roleName: CFSSL_ROOT_CA
+      filename: root-ca-config.pvars
+      params:
+      - root_ca_port
+      - auth_default_key
