@@ -6,7 +6,7 @@ csd/images/icon.png
 
 # Release and intermediates
 release
-CFSSL-*
+PKI-*
 # Remote binaries
 
 # SHA256 SUMS

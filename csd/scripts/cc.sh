@@ -8,45 +8,45 @@ deploy() {
     # Load properties form existing configuration files
     default=$(get_peers ../root-ca-config)
     local port=$(get_property ../root-ca-config "${default}:port")
-    export CFSSL_DEFAULT_HOST_PORT=${default}:${port}
+    export PKI_DEFAULT_HOST_PORT=${default}:${port}
 
-    CFSSL_AUTH_DEFAULT_KEY_BASE64=$(get_property ../root-ca-config "$default:CFSSL_AUTH_DEFAULT_KEY_BASE64")
-    export CFSSL_DEFAULT_AUTH_KEY=$DEST_PATH/../default.auth_key
-    echo -n "$(base64_to_hex $CFSSL_DEFAULT_AUTH_KEY_BASE64)" > $CFSSL_DEFAULT_AUTH_KEY
-    chmod 600 $CFSSL_DEFAULT_AUTH_KEY
-    CFSSL_DEFAULT_AUTH_KEY=file:${CFSSL_DEFAULT_AUTH_KEY}
+    PKI_AUTH_KEY_BASE64=$(get_property ../root-ca-config "$default:auth_key_base64")
+    export PKI_DEFAULT_AUTH_KEY=$(dirname $DEST_PATH)/default.auth_key
+    echo -n "$(base64_to_hex $PKI_AUTH_KEY_BASE64)" > $PKI_DEFAULT_AUTH_KEY
+    chmod 600 $PKI_DEFAULT_AUTH_KEY
+    PKI_DEFAULT_AUTH_KEY=file:${PKI_DEFAULT_AUTH_KEY}
 
-    envsubst_all CFSSL_DEFAULT
+    envsubst_all PKI_DEFAULT
 
-    load_vars CFSSL_GW gw
-    CFSSL_GW_TRUSTSTORE_PASSWORD=${CFSSL_GW_TRUSTSTORE_PASSWORD:-changeit}
+    load_vars PKI_GW gw
+    PKI_GW_TRUSTSTORE_PASSWORD=${PKI_GW_TRUSTSTORE_PASSWORD:-changeit}
 
-    cfssl info -config ca-client.json | jq -r .certificate > cfssl-default.crt
+    cfssl info -config ca-client.json | jq -r .certificate > cdhpki-default.crt
     keytool -import -noprompt  \
-        -file cfssl-default.crt \
-        -alias cfssl-default \
+        -file cdhpki-default.crt \
+        -alias cdhpki-default \
         -keystore truststore.jks \
-        -storepass "${CFSSL_GW_TRUSTSTORE_PASSWORD}"
+        -storepass "${PKI_GW_TRUSTSTORE_PASSWORD}"
 
-    if [ ! -z ${CFSSL_GW_TRUSTSTORE_LOCATION+x} ]; then
-        if [ -f ${CFSSL_GW_TRUSTSTORE_LOCATION} ]; then
+    if [ ! -z ${PKI_GW_TRUSTSTORE_LOCATION+x} ]; then
+        if [ -f ${PKI_GW_TRUSTSTORE_LOCATION} ]; then
             keytool -delete -noprompt \
-                -alias cfssl-default \
-                -keystore "${CFSSL_GW_TRUSTSTORE_LOCATION}" \
-                -storepass "${CFSSL_GW_TRUSTSTORE_PASSWORD}"
+                -alias cdhpki-default \
+                -keystore "${PKI_GW_TRUSTSTORE_LOCATION}" \
+                -storepass "${PKI_GW_TRUSTSTORE_PASSWORD}"
         fi
         keytool -import -noprompt \
-            -file cfssl-default.crt \
-            -alias cfssl-default \
-            -keystore "${CFSSL_GW_TRUSTSTORE_LOCATION}" \
-            -storepass "${CFSSL_GW_TRUSTSTORE_PASSWORD}"
+            -file cdhpki-default.crt \
+            -alias cdhpki-default \
+            -keystore "${PKI_GW_TRUSTSTORE_LOCATION}" \
+            -storepass "${PKI_GW_TRUSTSTORE_PASSWORD}"
     fi
 
     anchors_dir=/etc/pki/ca-trust/source/anchors
-    if [ ${CFSSL_GW_UPDATE_CA_TRUST} == "true" ]; then
-        cp cfssl-default.crt ${anchors_dir}
+    if [ ${PKI_GW_UPDATE_CA_TRUST} == "true" ]; then
+        cp cdhpki-default.crt ${anchors_dir}
     else
-        rm -f ${anchors_dir}/cfssl-default.crt
+        rm -f ${anchors_dir}/cdhpki-default.crt
     fi
     update-ca-trust
 }

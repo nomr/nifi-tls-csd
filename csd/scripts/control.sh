@@ -13,41 +13,41 @@ move_aux_files() {
 
 create_root_ca_csr_json() {
     # Load/Edit Vars
-    load_vars CFSSL root-ca-csr
+    load_vars PKI root-ca-csr
 
     # Get Aux Files
     move_aux_files
 
     # Render
-    envsubst_all CFSSL_
+    envsubst_all PKI_
 
     # Clean optional lines
     in=root-ca-csr.json
-    grep -v '${CFSSL_.*}' $in > ${in}.clean && mv ${in}.clean ${in}
+    grep -v '${PKI_.*}' $in > ${in}.clean && mv ${in}.clean ${in}
 }
 
 root_ca_init() {
     create_root_ca_csr_json
-    cfssl gencert --initca=true root-ca-csr.json | /opt/cloudera/parcels/CFSSL/bin/cfssljson -bare ~/ca
+    cfssl gencert --initca=true root-ca-csr.json | cfssljson -bare ~/ca
 }
 
 create_root_ca_config_json() {
-    load_vars CFSSL root-ca-config
+    load_vars PKI root-ca-config
     move_aux_files
-    envsubst_all CFSSL_
+    envsubst_all PKI_
 
     # Clean optional lines
     in=root-ca-config.json
-    grep -v '${CFSSL_.*}' $in > ${in}.clean && mv ${in}.clean ${in}
+    grep -v '${PKI_.*}' $in > ${in}.clean && mv ${in}.clean ${in}
 }
 
 root_ca_run() {
     create_root_ca_config_json
 
-    export CFSSL_AUTH_DEFAULT_KEY_HEX=$(base64_to_hex $CFSSL_AUTH_DEFAULT_KEY_BASE64)
+    export PKI_AUTH_DEFAULT_KEY_HEX=$(base64_to_hex $PKI_AUTH_DEFAULT_KEY_BASE64)
     exec cfssl serve \
            -address 0.0.0.0 \
-           -port $CFSSL_CA_PORT \
+           -port $PKI_CA_PORT \
            -ca ~/ca.pem \
            -ca-key ~/ca-key.pem \
            -config $CONF_DIR/root-ca-config.json

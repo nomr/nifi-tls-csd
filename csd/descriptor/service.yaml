@@ -1,6 +1,6 @@
-name: CFSSL
+name: PKI
 label: PKI
-description: CloudFlare's Public Key Infrastructure
+description: Public Key Infrastructure
 version: 0.1.0
 
 compatibility:
@@ -26,14 +26,14 @@ parcel:
 serviceDependencies:
 
 rolesWithExternalLinks:
-- CFSSL_ROOT_CA
+- PKI_ROOT_CA
 
 commands:
 - name: svc_create_ca
   label: Initialize Root CA
   description: Creates the root certificate and keys
   roleCommand: root_ca_init
-  roleName: CFSSL_ROOT_CA
+  roleName: PKI_ROOT_CA
   runMode: single
 
 parameters:
@@ -43,7 +43,7 @@ parameters:
   description: The X.509 attributes for the certificate, i.e.
     country(C), state or province(S), locality(L), organization(O),
     organizational unit(OU), and the common name(CN). All fields are
-    optional, but if a CN is not defined, then CFSSL will default to
+    optional, but if a CN is not defined, then it defaults to
     the machine's hostname.
   type: string
 - name: csr_name_location
@@ -52,7 +52,7 @@ parameters:
   description: The X.509 attributes for the certificate, i.e.
     country(C), state or province(S), locality(L), organization(O),
     organizational unit(OU), and the common name(CN). All fields are
-    optional, but if a CN is not defined, then CFSSL will default to
+    optional, but if a CN is not defined, then it defaults to
     the machine's hostname.
   type: string
 - name: csr_name_state
@@ -61,7 +61,7 @@ parameters:
   description: The X.509 attributes for the certificate, i.e.
     country(C), state or province(S), locality(L), organization(O),
     organizational unit(OU), and the common name(CN). All fields are
-    optional, but if a CN is not defined, then CFSSL will default to
+    optional, but if a CN is not defined, then it defaults to
     the machine's hostname.
   type: string
 - name: csr_name_country
@@ -70,7 +70,7 @@ parameters:
   description: The X.509 attributes for the certificate, i.e.
     country(C), state or province(S), locality(L), organization(O),
     organizational unit(OU), and the common name(CN). All fields are
-    optional, but if a CN is not defined, then CFSSL will default to
+    optional, but if a CN is not defined, then it defaults to
     the machine's hostname.
   type: string
 
@@ -103,7 +103,7 @@ parameters:
   - client auth
 
 roles:
-- name: CFSSL_ROOT_CA
+- name: PKI_ROOT_CA
   label: Root CA
   pluralLabel: Root Certificate of Authority
 
@@ -114,8 +114,8 @@ roles:
 
   startRunner:
     environmentVariables:
-      CFSSL_AUTH_DEFAULT_KEY_BASE64: "${auth_default_key}"
-      CFSSL_CA_PORT: "${root_ca_port}"
+      PKI_AUTH_KEY_BASE64: "${auth_default_key}"
+      PKI_CA_PORT: "${root_ca_port}"
     program: scripts/control.sh
     args: [root-ca-run]
 
@@ -127,7 +127,7 @@ roles:
     requiredRoleState: stopped
     commandRunner:
       environmentVariables:
-        CFSSL_CSR_CN: "${host}"
+        PKI_CSR_CN: "${host}"
       program: scripts/control.sh
       args:
       - root-ca-init
@@ -136,16 +136,10 @@ roles:
     maxInstances: 1
     minInstances: 1
 
-  logging:
-    dir: /var/log/cfssl
-    filename: ca-server.log
-    loggingType: log4j
-    modifiable: false
-
   parameters:
   - name: auth_default_key
-    configName: CFSSL_AUTH_DEFAULT_KEY_BASE64
-    label: CA's Default Authentication Token
+    configName: auth_key_base64
+    label: CA's Default Authentication Token (base64 encoded)
     description: The token to prevent MITM attacks.
     required: true
     configurableInWizard: true
@@ -168,7 +162,7 @@ roles:
     description: The X.509 attributes for the certificate, i.e.
       country(C), state or province(S), locality(L), organization(O),
       organizational unit(OU), and the common name(CN). All fields are
-      optional, but if a CN is not defined, then CFSSL will default to
+      optional, but if a CN is not defined, then it will default to
       the machine's hostname.
     type: string_array
     separator: '"},{"OU":"'
@@ -226,7 +220,7 @@ gateway:
   alternatives:
     name: pki-conf
     priority: 50
-    linkRoot: /etc/pki/cfssl
+    linkRoot: /etc/pki/cdh
   scriptRunner:
     program: scripts/cc.sh
     args: [deploy]
@@ -246,7 +240,7 @@ gateway:
     configName: TRUSTSTORE_LOCATION
     label: GW Truststore Location
     description: Location of the (existing) trustore to load the
-      Root CA certificates. We will use alias 'cfssl-default' and use
+      Root CA certificates. We will use alias 'cdhpki-default' and use
       Java's default truststore password.
     required: false
     type: path
@@ -263,7 +257,7 @@ gateway:
       - gw_update_ca_trust
       - gw_truststore_location
     peerConfigGenerators:
-    - roleName: CFSSL_ROOT_CA
+    - roleName: PKI_ROOT_CA
       filename: root-ca-config.pvars
       params:
       - root_ca_port

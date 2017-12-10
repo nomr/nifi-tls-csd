@@ -2,11 +2,11 @@
     "auth_keys": {
         "default": {
             "type": "standard",
-            "key": "${CFSSL_DEFAULT_AUTH_KEY}"
+            "key": "${PKI_DEFAULT_AUTH_KEY}"
         }
     },
     "remotes": {
-        "default": "${CFSSL_DEFAULT_HOST_PORT}"
+        "default": "${PKI_DEFAULT_HOST_PORT}"
     },
     "signing": {
         "default": {

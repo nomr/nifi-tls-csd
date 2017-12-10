@@ -1,19 +1,19 @@
 {
-        "CN": "${CFSSL_CSR_CN}",
+        "CN": "${PKI_CSR_CN}",
 	"hosts": [ 
-		"${CFSSL_CSR_CN}"
-		,"${CFSSL_CSR_SAN}"
+		"${PKI_CSR_CN}"
+		,"${PKI_CSR_SAN}"
 	],
 	"key": {
-		"algo": "${CFSSL_CSR_KEY_ALGO}",
-		"size": ${CFSSL_CSR_KEY_SIZE}
+		"algo": "${PKI_CSR_KEY_ALGO}",
+		"size": ${PKI_CSR_KEY_SIZE}
 	},
 	"names": [
 		{
-			"C": "${CFSSL_CA_C}",
-			"ST": "${CFSSL_CA_ST}",
-			"L": "${CFSSL_CA_L}",
-			"O": "${CFSSL_CA_O}",
-			"OU":"${CFSSL_CSR_OUS}"}
+			"C": "${PKI_CA_C}",
+			"ST": "${PKI_CA_ST}",
+			"L": "${PKI_CA_L}",
+			"O": "${PKI_CA_O}",
+			"OU":"${PKI_CSR_OUS}"}
 	]
 }
