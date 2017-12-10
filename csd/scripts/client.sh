@@ -1,45 +1,36 @@
-NIFI_TLS_ENABLED=true
-tls_client_init() {
-    local prefix=tls-conf/tls
-    local caHostname=`grep port ${prefix}-service.properties | head -1 | cut -f 1 -d ':'`
-    local caPort=`grep port ${prefix}-service.properties | head -1 | cut -f 2 -d '='`
+create_csr_json() {
+    local prefix=$1
 
-    if [ -e ${prefix}.json ]; then
-      return 0
-    fi
+    # Load/Edit Vars
+    export PKI_CSR_CN=$(hostname -f)
+    load_vars PKI default-csr
+    load_vars PKI $prefix
 
-    convert_prefix_hadoop_xml ${prefix} ${CDH_NIFI_XSLT}/hadoop2element-value.xslt
+    # Render
+    envsubst_all PKI $prefix
 
-    sed -i "s/@@CA_HOSTNAME@@/${caHostname}/" ${prefix}-service.xml
-    sed -i "s/@@CA_PORT@@/${caPort}/" ${prefix}-service.xml
+    # Clean optional lines
+    grep -v '${PKI_.*}' ${prefix}.json > ${prefix}.clean \
+      && mv ${prefix}.clean ${prefix}.json
+}
 
-    sed -i "s/@@DN_PREFIX@@/${DN_PREFIX}/" ${prefix}-client.xml
-    sed -i "s/@@DN_SUFFIX@@/${DN_SUFFIX}/" ${prefix}-client.xml
+create_ca_client_json() {
+    # Load/Edit Variables
+    local host=$(get_peers root-ca-config)
+    local port=$(get_property root-ca-config "${host}:port")
+    local auth_key_base64=$(get_property root-ca-config "${host}:auth_key_base64")
 
-    # Merge TLS configuration
-    local merge=${CDH_NIFI_XSLT}/merge.xslt
-    local in_a=${prefix}-client.xml
-    local in_b=$(basename ${prefix}-service.xml) # relative paths only
-    local out=${prefix}.xml
-    xsltproc -o ${out} \
-             --param with "'${in_b}'" \
-             ${merge} ${in_a}
-    rm -f ${in_a} ${in_b}
+    export PKI_DEFAULT_HOST_PORT=${host}:${port} 
+    export PKI_DEFAULT_AUTH_KEY=$(base64_to_hex $auth_key_base64)
 
+    # Render
+    envsubst_all PKI_DEFAULT ca-client
+}
 
-    xsltproc ${CDH_NIFI_XSLT}/xml2json.xslt $out | ${CDH_NIFI_JQ} '
-      .configuration |
-      .port=(.port| tonumber) |
-      .days=(.days | tonumber) |
-      .keySize=(.keySize | tonumber) |
-      .reorderDn=(.reorderDn == "true")' > ${prefix}.json
+pki_init() {
+    create_csr_json client-csr
+    create_ca_client_json
 
-    local CLASSPATH=".:${CDH_NIFI_TOOLKIT_HOME}/lib/*"
-
-    "${JAVA}" -cp "${CLASSPATH}" \
-                ${JAVA_OPTS:--Xms12m -Xmx24m} \
-                ${CSD_JAVA_OPTS:-} \
-                org.apache.nifi.toolkit.tls.TlsToolkitMain \
-                client -F \
-                --configJson ${prefix}.json
+    cfssl info -config ca-client.json | jq -r .certificate > cdhpki-default.crt
+    cfssl gencert -config ca-client.json client-csr.json | cfssljson -bare client
 }

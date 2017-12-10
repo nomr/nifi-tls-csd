@@ -1,6 +1,6 @@
 {
         "CN": "${PKI_CSR_CN}",
-	"hosts": [ 
+	"hosts": [
 		"${PKI_CSR_CN}"
 		,"${PKI_CSR_SAN}"
 	],

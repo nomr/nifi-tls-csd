@@ -6,11 +6,11 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 deploy() {
     # Load properties form existing configuration files
-    default=$(get_peers ../root-ca-config)
-    local port=$(get_property ../root-ca-config "${default}:port")
+    default=$(get_peers cdhpki-servers)
+    local port=$(get_property cdhpki-servers "${default}:port")
     export PKI_DEFAULT_HOST_PORT=${default}:${port}
 
-    PKI_AUTH_KEY_BASE64=$(get_property ../root-ca-config "$default:auth_key_base64")
+    PKI_AUTH_KEY_BASE64=$(get_property cdhpki-servers "$default:auth_key_base64")
     export PKI_DEFAULT_AUTH_KEY=$(dirname $DEST_PATH)/default.auth_key
     echo -n "$(base64_to_hex $PKI_AUTH_KEY_BASE64)" > $PKI_DEFAULT_AUTH_KEY
     chmod 600 $PKI_DEFAULT_AUTH_KEY
@@ -21,7 +21,7 @@ deploy() {
     load_vars PKI_GW gw
     PKI_GW_TRUSTSTORE_PASSWORD=${PKI_GW_TRUSTSTORE_PASSWORD:-changeit}
 
-    cfssl info -config ca-client.json | jq -r .certificate > cdhpki-default.crt
+    cfssl info -config cdhpki-client.json | jq -r .certificate > cdhpki-default.crt
     keytool -import -noprompt  \
         -file cdhpki-default.crt \
         -alias cdhpki-default \
@@ -49,6 +49,9 @@ deploy() {
         rm -f ${anchors_dir}/cdhpki-default.crt
     fi
     update-ca-trust
+
+    rm -f gw.vars
+    rm -f root-ca-config.pvars
 }
 
 case "$1" in

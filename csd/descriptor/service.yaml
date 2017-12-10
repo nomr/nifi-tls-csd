@@ -197,20 +197,27 @@ roles:
     default: 23443
 
   configWriter:
+    auxConfigGenerators:
+    - filename: cdhpki-server.envsubst.json
+      sourceFilename: aux/cdhpki-server.envsubst.json
+    - filename: pki-conf/cdhpki-server-csr.envsubst.json
+      sourceFilename: aux/csr.envsubst.json
     generators:
-    - filename: root-ca-csr.vars
+    - filename: pki-conf/default-csr.vars
+      configFormat: properties
+      includedParams:
+      - csr_name_country
+      - csr_name_state
+      - csr_name_location
+      - csr_name_org
+    - filename: pki-conf/cdhpki-server-csr.vars
       configFormat: properties
       includedParams:
       - csr_hosts
       - csr_key_algo
       - csr_key_size
-      - csr_name_country
-      - csr_name_state
-      - csr_name_location
-      - csr_name_org
       - csr_name_org_unit
-
-    - filename: root-ca-config.vars
+    - filename: cdhpki-server.vars
       configFormat: properties
       includedParams:
       - sign_default_expiry
@@ -248,9 +255,20 @@ gateway:
 
   configWriter:
     auxConfigGenerators:
-    - filename: pki-conf/ca-client.envsubst.json
-      sourceFilename: aux/ca-client.envsubst.json
+    - filename: pki-conf/cdhpki-client.envsubst.json
+      sourceFilename: aux/cdhpki-client.envsubst.json
+    - filename: pki-conf/client-csr.envsubst.json
+      sourceFilename: aux/csr.envsubst.json
+    - filename: pki-conf/init.sh
+      sourceFilename: scripts/client.sh
     generators:
+    - filename: pki-conf/default-csr.vars
+      configFormat: properties
+      includedParams:
+      - csr_name_country
+      - csr_name_state
+      - csr_name_location
+      - csr_name_org
     - filename: pki-conf/gw.vars
       configFormat: properties
       includedParams:
@@ -258,7 +276,7 @@ gateway:
       - gw_truststore_location
     peerConfigGenerators:
     - roleName: PKI_ROOT_CA
-      filename: root-ca-config.pvars
+      filename: pki-conf/cdhpki-servers.pvars
       params:
       - root_ca_port
       - auth_default_key
