@@ -19,7 +19,7 @@ create_root_ca_csr_json() {
     move_aux_files
 
     # Render
-    envsubst_all
+    envsubst_all CFSSL_
 
     # Clean optional lines
     in=root-ca-csr.json
@@ -34,7 +34,7 @@ root_ca_init() {
 create_root_ca_config_json() {
     load_vars CFSSL root-ca-config
     move_aux_files
-    envsubst_all
+    envsubst_all CFSSL_
 
     # Clean optional lines
     in=root-ca-config.json

@@ -16,7 +16,7 @@ deploy() {
     chmod 600 $CFSSL_DEFAULT_AUTH_KEY
     CFSSL_DEFAULT_AUTH_KEY=file:${CFSSL_DEFAULT_AUTH_KEY}
 
-    envsubst_all
+    envsubst_all CFSSL_DEFAULT
 
     load_vars CFSSL_GW gw
     CFSSL_GW_TRUSTSTORE_PASSWORD=${CFSSL_GW_TRUSTSTORE_PASSWORD:-changeit}

@@ -45,12 +45,15 @@ get_property() {
 }
 
 envsubst_all() {
+    local var_prefix=$1
+    local filename_prefix=${2:-}
+
     local shell_format="\$CONF_DIR,\$ZK_QUORUM"
-    for i in ${!CFSSL_*}; do
+    for i in $(eval "echo \${!${var_prefix}*}"); do
         shell_format="${shell_format},\$$i"
     done
 
-    for i in $(find . -maxdepth 1 -type f -name '*.envsubst*'); do
+    for i in $(find . -maxdepth 1 -type f -name "${filename_prefix}*.envsubst*"); do
         cat $i | envsubst $shell_format > ${i/\.envsubst/}
         rm -f $i
     done
