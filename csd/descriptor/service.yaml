@@ -205,7 +205,7 @@ roles:
     generators:
     - filename: pki-conf/default-csr.vars
       configFormat: properties
-      includedParams:
+      includedParams: &default_csr_params
       - csr_name_country
       - csr_name_state
       - csr_name_location
@@ -264,11 +264,7 @@ gateway:
     generators:
     - filename: pki-conf/default-csr.vars
       configFormat: properties
-      includedParams:
-      - csr_name_country
-      - csr_name_state
-      - csr_name_location
-      - csr_name_org
+      includedParams: *default_csr_params
     - filename: pki-conf/gw.vars
       configFormat: properties
       includedParams:
