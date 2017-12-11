@@ -13,9 +13,9 @@ icon: images/icon.png
 inExpressWizard: true
 
 runAs:
-  user: cfssl
-  group: cfssl
-  principal: cfssl
+  user: cloudera-pki
+  group: cloudera-pki
+  principal: cloudera-pki
 
 maxInstances: 1
 
