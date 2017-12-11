@@ -20,7 +20,7 @@ runAs:
 maxInstances: 1
 
 parcel:
-  repoUrl: https://github.com/nomr/cfssl-parcel/releases/download/v1.2.0+0.0.2
+  repoUrl: https://github.com/nomr/pki-parcel/releases/download/v1.2.0+0.0.4
   requiredTags: [pki]
 
 serviceDependencies:

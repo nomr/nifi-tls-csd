@@ -13,6 +13,7 @@ create_csr_json() {
     grep -v '${PKI_.*}' ${prefix}.json > ${prefix}.clean \
       && mv ${prefix}.clean ${prefix}.json
 }
+export -f create_csr_json
 
 create_ca_client_json() {
     # Load/Edit Variables
@@ -26,9 +27,10 @@ create_ca_client_json() {
     # Render
     envsubst_all PKI_DEFAULT cdhpki-client
 }
+export -f create_ca_client_json
 
 create_truststore() {
-    ${CFSSL_HOME}/bin/cfssl info \
+    cfssl info \
       -config pki-conf/cdhpki-client.json \
       | jq -r .certificate > pki-conf/cdhpki-default.crt
 
@@ -50,12 +52,13 @@ create_truststore() {
         -keystore "${PKI_TRUSTSTORE_LOCATION}" \
         -storepass:env PKI_TRUSTSTORE_PASSWORD
 }
+export -f create_truststore
 
 create_keystore() {
-    ${CFSSL_HOME}/bin/cfssl gencert \
+    cfssl gencert \
       -config pki-conf/cdhpki-client.json \
       pki-conf/client-csr.json \
-      | ${CFSSL_HOME}/bin/cfssljson -bare pki-conf/client
+      | cfssljson -bare pki-conf/client
 
     if [ -z ${PKI_KEYSTORE_LOCATION+x} ]; then
         return 0
@@ -90,6 +93,7 @@ create_keystore() {
         -destalias client \
         -noprompt
 }
+export -f create_keystore
 
 pki_get_default_subject_suffix() {
     pushd pki-conf 1>&2
@@ -103,6 +107,7 @@ pki_get_default_subject_suffix() {
 
     echo ""
 }
+export -f pki_get_default_subject_suffix
 
 pki_init() {
     pushd pki-conf 1>&2
@@ -113,3 +118,4 @@ pki_init() {
     create_truststore
     create_keystore
 }
+export -f pki_init
