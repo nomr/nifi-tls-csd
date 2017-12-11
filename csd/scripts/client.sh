@@ -1,45 +1,121 @@
-NIFI_TLS_ENABLED=true
-tls_client_init() {
-    local prefix=tls-conf/tls
-    local caHostname=`grep port ${prefix}-service.properties | head -1 | cut -f 1 -d ':'`
-    local caPort=`grep port ${prefix}-service.properties | head -1 | cut -f 2 -d '='`
+create_csr_json() {
+    local prefix=$1
 
-    if [ -e ${prefix}.json ]; then
-      return 0
+    # Load/Edit Vars
+    export PKI_CSR_CN=${PKI_CSR_CN:-$(hostname -f)}
+    load_vars PKI default-csr
+    load_vars PKI $prefix
+
+    # Render
+    envsubst_all PKI $prefix
+
+    # Clean optional lines
+    grep -v '${PKI_.*}' ${prefix}.json > ${prefix}.clean \
+      && mv ${prefix}.clean ${prefix}.json
+}
+export -f create_csr_json
+
+create_ca_client_json() {
+    # Load/Edit Variables
+    local host=$(get_peers cdhpki-servers)
+    local port=$(get_property cdhpki-servers "${host}:port")
+    local auth_key_base64=$(get_property cdhpki-servers "${host}:auth_key_base64")
+
+    export PKI_DEFAULT_HOST_PORT=${host}:${port} 
+    export PKI_DEFAULT_AUTH_KEY=$(base64_to_hex $auth_key_base64)
+
+    # Render
+    envsubst_all PKI_DEFAULT cdhpki-client
+}
+export -f create_ca_client_json
+
+create_truststore() {
+    cfssl info \
+      -config pki-conf/cdhpki-client.json \
+      | jq -r .certificate > pki-conf/cdhpki-default.crt
+
+    if [ -z ${PKI_TRUSTSTORE_LOCATION+x} ]; then
+        return 0
+    fi
+    PKI_TRUSTSTORE_PASSWORD=${PKI_TRUSTSTORE_PASSWORD:-changeit}
+
+    if [ -f ${PKI_TRUSTSTORE_LOCATION} ]; then
+        keytool -delete -noprompt \
+                -alias cdhpki-default \
+                -keystore "${PKI_TRUSTSTORE_LOCATION}" \
+                -storepass:env PKI_TRUSTSTORE_PASSWORD
     fi
 
-    convert_prefix_hadoop_xml ${prefix} ${CDH_NIFI_XSLT}/hadoop2element-value.xslt
-
-    sed -i "s/@@CA_HOSTNAME@@/${caHostname}/" ${prefix}-service.xml
-    sed -i "s/@@CA_PORT@@/${caPort}/" ${prefix}-service.xml
-
-    sed -i "s/@@DN_PREFIX@@/${DN_PREFIX}/" ${prefix}-client.xml
-    sed -i "s/@@DN_SUFFIX@@/${DN_SUFFIX}/" ${prefix}-client.xml
-
-    # Merge TLS configuration
-    local merge=${CDH_NIFI_XSLT}/merge.xslt
-    local in_a=${prefix}-client.xml
-    local in_b=$(basename ${prefix}-service.xml) # relative paths only
-    local out=${prefix}.xml
-    xsltproc -o ${out} \
-             --param with "'${in_b}'" \
-             ${merge} ${in_a}
-    rm -f ${in_a} ${in_b}
-
-
-    xsltproc ${CDH_NIFI_XSLT}/xml2json.xslt $out | ${CDH_NIFI_JQ} '
-      .configuration |
-      .port=(.port| tonumber) |
-      .days=(.days | tonumber) |
-      .keySize=(.keySize | tonumber) |
-      .reorderDn=(.reorderDn == "true")' > ${prefix}.json
-
-    local CLASSPATH=".:${CDH_NIFI_TOOLKIT_HOME}/lib/*"
-
-    "${JAVA}" -cp "${CLASSPATH}" \
-                ${JAVA_OPTS:--Xms12m -Xmx24m} \
-                ${CSD_JAVA_OPTS:-} \
-                org.apache.nifi.toolkit.tls.TlsToolkitMain \
-                client -F \
-                --configJson ${prefix}.json
+    keytool -importcert -noprompt \
+        -file pki-conf/cdhpki-default.crt \
+        -alias cdhpki-default \
+        -keystore "${PKI_TRUSTSTORE_LOCATION}" \
+        -storepass:env PKI_TRUSTSTORE_PASSWORD
 }
+export -f create_truststore
+
+create_keystore() {
+    cfssl gencert \
+      -config pki-conf/cdhpki-client.json \
+      pki-conf/client-csr.json \
+      | cfssljson -bare pki-conf/client
+
+    if [ -z ${PKI_KEYSTORE_LOCATION+x} ]; then
+        return 0
+    fi
+
+    openssl pkcs12 -export \
+        -in pki-conf/client.pem \
+        -inkey pki-conf/client-key.pem \
+        -CAfile pki-conf/cdhpki-default.crt \
+        -caname cdhpki-default \
+        -out ${PKI_KEYSTORE_LOCATION%.jks}.p12 \
+        -passout env:PKI_KEYSTORE_PASSWORD \
+        -chain \
+        -name client
+
+    keytool -importcert -noprompt \
+        -file pki-conf/cdhpki-default.crt \
+        -alias cdhpki-default \
+        -keystore "${PKI_KEYSTORE_LOCATION}" \
+        -storepass:env PKI_KEYSTORE_PASSWORD
+
+    keytool -importkeystore \
+        -srckeystore ${PKI_KEYSTORE_LOCATION%.jks}.p12 \
+        -srcstoretype PKCS12 \
+        -srcstorepass:env PKI_KEYSTORE_PASSWORD \
+        -srckeypass:env PKI_KEYSTORE_PASSWORD \
+        -srcalias client \
+        -destkeystore ${PKI_KEYSTORE_LOCATION} \
+        -deststoretype JKS \
+        -deststorepass:env PKI_KEYSTORE_PASSWORD \
+        -destkeypass:env PKI_KEYSTORE_PASSWORD \
+        -destalias client \
+        -noprompt
+}
+export -f create_keystore
+
+pki_get_default_subject_suffix() {
+    pushd pki-conf 1>&2
+    load_vars PKI default-csr
+    popd 1>&2
+
+    [ ! -z ${PKI_CA_O+x} ] && echo -n ", O=${PKI_CA_O}"
+    [ ! -z ${PKI_CA_L+x} ] && echo -n ", L=${PKI_CA_L}"
+    [ ! -z ${PKI_CA_ST+x} ] && echo -n ", ST=${PKI_CA_ST}"
+    [ ! -z ${PKI_CA_C+x} ] && echo -n ", C=${PKI_CA_C}"
+
+    echo ""
+}
+export -f pki_get_default_subject_suffix
+
+pki_init() {
+    pushd pki-conf 1>&2
+    create_ca_client_json
+    create_csr_json client-csr
+    popd 1>&2
+
+    create_truststore
+    create_keystore
+}
+export -f pki_init

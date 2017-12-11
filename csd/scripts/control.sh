@@ -1,76 +1,65 @@
 #!/usr/bin/env bash
-
 set -efu -o pipefail
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-. ${COMMON_SCRIPT}
+. ${DIR}/common.sh
+. ${DIR}/client.sh
 
-
-hadoop_xml_to_json()
-{
-  xsltproc ${CDH_NIFI_XSLT}/hadoop2element-value.xslt server.hadoop_xml > server.xml
-  xsltproc ${CDH_NIFI_XSLT}/xml2json.xslt server.xml | ${CDH_NIFI_JQ} '
-    .configuration |
-    .port=(.port| tonumber) |
-    .days=(.days | tonumber) |
-    .keySize=(.keySize | tonumber) |
-    .reorderDn=(.reorderDn == "true")' > server.json
+move_aux_files() {
+    local suffix=envsubst.json
 }
 
-locate_java8_home() {
-    if [ -z "${JAVA_HOME}" ]; then
-        BIGTOP_JAVA_MAJOR=8
-        locate_java_home
-    fi
-
-    JAVA="${JAVA_HOME}/bin/java"
-    TOOLS_JAR=""
-
-    # if command is env, attempt to add more to the classpath
-    if [ "$1" = "env" ]; then
-        [ "x${TOOLS_JAR}" =  "x" ] && [ -n "${JAVA_HOME}" ] && TOOLS_JAR=$(find -H "${JAVA_HOME}" -name "tools.jar")
-        [ "x${TOOLS_JAR}" =  "x" ] && [ -n "${JAVA_HOME}" ] && TOOLS_JAR=$(find -H "${JAVA_HOME}" -name "classes.jar")
-        if [ "x${TOOLS_JAR}" =  "x" ]; then
-             warn "Could not locate tools.jar or classes.jar. Please set manually to avail all command features."
-        fi
-    fi
+root_ca_init() {
+    pushd pki-conf
+    create_csr_json cdhpki-server-csr
+    cfssl gencert --initca=true cdhpki-server-csr.json | cfssljson -bare ~/ca
+    popd
 }
 
-init() {
-    # NiFi 1.4.0 was compiled with 1.8.0
-    locate_java8_home $1
-
-    # Simulate NIFI_TOOLKIT_HOME
-    NIFI_TOOLKIT_HOME=$(pwd)
-    [ -e lib ] || ln -s ${CDH_NIFI_TOOLKIT_HOME}/lib .
-
-    hadoop_xml_to_json
+root_ca_renew() {
+    pushd pki-conf
+    create_csr_json cdhpki-server-csr
+    cfssl gencert -renewca -ca ~/ca.pem -ca-key ~/ca-key.pem
+    popd pki-conf
 }
 
-run() {
-    LIBS="${NIFI_TOOLKIT_HOME}/lib/*"
+create_cdhpki_server_json() {
+    # Load/Edit Vars
+    load_vars PKI cdhpki-server
 
-    CLASSPATH=".:${LIBS}"
+    # Render
+    envsubst_all PKI_ cdhpki-server
 
-    export JAVA_HOME="$JAVA_HOME"
-    export NIFI_TOOLKIT_HOME="$NIFI_TOOLKIT_HOME"
-
-    umask 0077
-    exec "${JAVA}" -cp "${CLASSPATH}" ${JAVA_OPTS:--Xms12m -Xmx24m} ${CSD_JAVA_OPTS} org.apache.nifi.toolkit.tls.TlsToolkitMain server --configJsonIn server.json -F
+    # Clean optional lines
+    in=cdhpki-server.json
+    grep -v '${PKI_.*}' $in > ${in}.clean && mv ${in}.clean ${in}
 }
 
+root_ca_run() {
+    create_cdhpki_server_json
 
-main() {
-    init "$1"
-    run "$@"
+    export PKI_AUTH_DEFAULT_KEY_HEX=$(base64_to_hex $PKI_AUTH_DEFAULT_KEY_BASE64)
+    exec cfssl serve \
+           -address 0.0.0.0 \
+           -port $PKI_CA_PORT \
+           -ca ~/ca.pem \
+           -ca-key ~/ca-key.pem \
+           -config $CONF_DIR/cdhpki-server.json
 }
 
-case "$1" in
-    run)
-        main "$@"
+program=$1
+shift
+case "$program" in
+    root-ca-init)
+        root_ca_init "$@"
         ;;
-    deploy)
+    root-ca-renew)
+        root_ca_renew "$@"
+        ;;
+    root-ca-run)
+        root_ca_run "$@"
         ;;
     *)
-        echo "Usage nifi {stop|run|status|dump|env}"
+        echo "Usage control.sh <root-ca-init|root-ca-run> ..."
         ;;
 esac

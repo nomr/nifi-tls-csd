@@ -1,6 +1,6 @@
-name: NIFI_TLS
-label: NiFi-TLS
-description: Apache NiFi's Transport Layer Security Service. <span class="error">Requires Java 8.</span>
+name: PKI
+label: PKI
+description: Public Key Infrastructure
 version: 0.1.0
 
 compatibility:
@@ -13,187 +13,266 @@ icon: images/icon.png
 inExpressWizard: true
 
 runAs:
-  user: nifi-ca
-  group: nifi-ca
-  principal: nifi-ca
+  user: cloudera-pki
+  group: cloudera-pki
+  principal: cloudera-pki
 
 maxInstances: 1
 
 parcel:
-  repoUrl: https://github.com/nomr/nifi-parcel/releases/download/v1.4.0+nifi0.6.1
-  requiredTags: [nifi-toolkit]
+  repoUrl: https://github.com/nomr/pki-parcel/releases/download/v1.2.0+0.0.5
+  requiredTags: [pki]
 
 serviceDependencies:
 
 rolesWithExternalLinks:
-- NIFI_TLS_CA
+- PKI_ROOT_CA
 
 commands:
-- name: server_remove_keystore
-  label: Remove Keystore
-  description: Removes the CA's keystore.
-  roleCommand: node_remove_keystore
-  roleName: NIFI_TLS_CA
-  runMode: all
+- name: svc_create_ca
+  label: Initialize Root CA
+  description: Creates the root certificate and keys
+  roleCommand: root_ca_init
+  roleName: PKI_ROOT_CA
+  runMode: single
 
 parameters:
-- name: java_home
-  configName: java.home
-  label: Java 8 Home
-  description: Path to Java 8
-  required: true
-  configurableInWizard: true
-  type: path
-  pathType: serviceSpecific
-  default: /usr/java/default
-- name: tls_token
-  configName: token
-  label: Client-Server Token
-  description: The token to prevent MITM attacks.
-  required: true
-  configurableInWizard: true
-  sensitive: true
-  type: password
-  initType: randomBase64
-- name: tls_dn_prefix
-  configName: dnPrefix
-  label: The DN prefix for the certificate
-  description: The DN prefix to use for the CA certificate.
-  required: true
-  configurableInWizard: true
+- name: csr_name_org
+  configName: CA_O
+  label: CA's X.509 Organization
+  description: The X.509 attributes for the certificate, i.e.
+    country(C), state or province(S), locality(L), organization(O),
+    organizational unit(OU), and the common name(CN). All fields are
+    optional, but if a CN is not defined, then it defaults to
+    the machine's hostname.
   type: string
-  default: CN=
-- name: tls_dn_suffix
-  configName: dnSuffix
-  label: The DN suffix for the certificate
-  description: The DN suffx to use for the CA certificate.
-  required: true
-  configurableInWizard: true
+- name: csr_name_location
+  configName: CA_L
+  label: CA's X.509 Location
+  description: The X.509 attributes for the certificate, i.e.
+    country(C), state or province(S), locality(L), organization(O),
+    organizational unit(OU), and the common name(CN). All fields are
+    optional, but if a CN is not defined, then it defaults to
+    the machine's hostname.
   type: string
-  default: ', OU=NIFI'
+- name: csr_name_state
+  configName: CA_ST
+  label: CA's X.509 State or Province
+  description: The X.509 attributes for the certificate, i.e.
+    country(C), state or province(S), locality(L), organization(O),
+    organizational unit(OU), and the common name(CN). All fields are
+    optional, but if a CN is not defined, then it defaults to
+    the machine's hostname.
+  type: string
+- name: csr_name_country
+  configName: CA_C
+  label: CA's X.509 Country
+  description: The X.509 attributes for the certificate, i.e.
+    country(C), state or province(S), locality(L), organization(O),
+    organizational unit(OU), and the common name(CN). All fields are
+    optional, but if a CN is not defined, then it defaults to
+    the machine's hostname.
+  type: string
+
+- name: sign_default_expiry
+  configName: SIGNING_DEFAULT_EXPIRY
+  label: Default Signing Policy Expiry
+  description: How long the signed certificates are valid.
+  type: long
+  min: 1
+  softMin: 128
+  unit: hours
+  default: 8760
+
+- name: sign_default_usages
+  configName: SIGNING_DEFAULT_USAGES
+  label: Default Signing Policy Usages
+  description: 'The usages allowed in the default policy. The following are
+    acceptable key usages: signing, digital signature, content committment,
+    key encipherment, key agreement, data encipherment, cert sign, crl sign,
+    encipher only, decipher only. The following are acceptable extended
+    key usages: any, server auth, client auth, code signing,
+    email protection, s/mime, ipsec end system, ipsec tunnel, ipsec user,
+    timestamping, ocsp signing, microsoft sgc, netscape sgc.'
+  type: string_array
+  separator: '","'
+  default:
+  - signing
+  - key encipherment
+  - server auth
+  - client auth
 
 roles:
-- name: NIFI_TLS_CA
-  label: TLS Certificate of Authority
-  pluralLabel: TLS Certificate of Authority  #maxInstances=1
-  jvmBased: 'true'
+- name: PKI_ROOT_CA
+  label: Root CA
+  pluralLabel: Root Certificate of Authority
 
   externalLink:
     name: webserver_web_ui
     label: CA Server
-    url: 'https://${host}:${tls_port}'
+    url: 'http://${host}:${root_ca_port}'
 
   startRunner:
-    args: [run]
     environmentVariables:
-      JAVA_HOME: '${java_home}'
+      PKI_AUTH_KEY_BASE64: "${auth_default_key}"
+      PKI_CA_PORT: "${root_ca_port}"
     program: scripts/control.sh
+    args: [root-ca-run]
 
   commands:
-  - name: node_remove_keystore
-    label: Remove Keystore
-    description: Removes the CA's keystore.
+  - name: root_ca_init
+    label: Initialize Root CA
+    description: Creates the root certificate and keys
     expectedExitCodes: [0]
     requiredRoleState: stopped
     commandRunner:
-      program: scripts/exec.sh
-      args: ['rm','-f', '${tls_keystore_location}']
+      environmentVariables:
+        PKI_CSR_CN: "${host}"
+      program: scripts/control.sh
+      args:
+      - root-ca-init
 
   topology:
     maxInstances: 1
     minInstances: 1
 
-  logging:
-    dir: /var/log/nifi-tls
-    filename: ca-server.log
-    loggingType: log4j
-    modifiable: false
-
   parameters:
-  - name: tls_port
+  - name: auth_default_key
+    configName: auth_key_base64
+    label: CA's Default Authentication Token (base64 encoded)
+    description: The token to prevent MITM attacks.
+    required: true
+    configurableInWizard: true
+    sensitive: true
+    type: password
+    conformRegex: '^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$'
+
+  - name: csr_hosts
+    configName: CSR_SAN
+    label: CA's Subject Alternate Name
+    description: The Certificate of Authority subject alternative names.
+    required: false
+    type: uri_array
+    separator: '","'
+    default:
+
+  - name: csr_name_org_unit
+    configName: CSR_OUS
+    label: CA's X.509 Additional Organizational Units
+    description: The X.509 attributes for the certificate, i.e.
+      country(C), state or province(S), locality(L), organization(O),
+      organizational unit(OU), and the common name(CN). All fields are
+      optional, but if a CN is not defined, then it will default to
+      the machine's hostname.
+    type: string_array
+    separator: '"},{"OU":"'
+    minLength: 1
+    default:
+    - Certificate of Authority
+
+  - name: csr_key_algo
+    configName: CSR_KEY_ALGO
+    label: CA's Key Algorithm
+    description: The encryption algorithm used by the key
+    required: true
+    type: string_enum
+    validValues: [rsa,ecdsa]
+    default: rsa
+  - name: csr_key_size
+    configName: CSR_KEY_SIZE
+    label: CA's Key Algorithm
+    description: The size of the encryption key. For RSA pick something
+      between 2048 and 8192. For ECDSA pick one of 256, 384 or 521.
+    required: true
+    type: long
+    default: 4096
+
+  - name: root_ca_port
     configName: port
     label: CA Server Port
     description: The port for the Certificate Authority to listen on.
     required: true
     type: port
     min: 1024
-    default: 22443
-  - name: tls_keystore_location
-    configName: keyStore
-    label: CA Server KeyStore File Location
-    description: The CA Server keystore location
-    required: true
-    configurableInWizard: true
-    type: path
-    pathType: localDataFile
-    default: /var/lib/nifi-ca/server.jks
-  - name: tls_keystore_password
-    configName: keyStorePassword
-    label: CA Server KeyStore File Password
-    description: The CA Server keystore password
-    required: true
-    configurableInWizard: true
-    sensitive: true
-    type: password
-    initType: randomBase64
-  - name: tls_subject_alternate_names
-    configName: domainAlternativeNames
-    label: Domain Alternative Names
-    description: The alternative domains used in the TLS certificates.
-    required: false
-    type: uri_array
-
+    default: 23443
 
   configWriter:
+    auxConfigGenerators:
+    - filename: cdhpki-server.envsubst.json
+      sourceFilename: aux/cdhpki-server.envsubst.json
+    - filename: pki-conf/cdhpki-server-csr.envsubst.json
+      sourceFilename: aux/csr.envsubst.json
     generators:
-    - filename: server.hadoop_xml
-      configFormat: hadoop_xml
+    - filename: pki-conf/default-csr.vars
+      configFormat: properties
+      includedParams: &default_csr_params
+      - csr_name_country
+      - csr_name_state
+      - csr_name_location
+      - csr_name_org
+    - filename: pki-conf/cdhpki-server-csr.vars
+      configFormat: properties
       includedParams:
-      - tls_dn_prefix
-      - tls_dn_suffix
-      - tls_port
-      - tls_token
-      - tls_keystore_location
-      - tls_keystore_password
-      - tls_subject_alternate_names
-      additionalConfigs:
-      - {key: days, value: '1095'}
-      - {key: keySize, value: '2048'}
-      - {key: keyPairAlgorithm, value: RSA}
-      - {key: signingAlgorithm, value: SHA256WITHRSA}
-      - {key: dn, value: '${tls_dn_prefix}${host}${tls_dn_suffix}'}
-      - {key: keyStoreType, value: jks}
-      - {key: keyPassword, value: '${tls_keystore_password}'}
-      - {key: caHostname, value: '${host}'}
-      - {key: reorderDn, value: true}
+      - csr_hosts
+      - csr_key_algo
+      - csr_key_size
+      - csr_name_org_unit
+    - filename: cdhpki-server.vars
+      configFormat: properties
+      includedParams:
+      - sign_default_expiry
+      - sign_default_usages
 
 gateway:
   alternatives:
-    name: tls-conf
+    name: pki-conf
     priority: 50
-    linkRoot: /etc/pki/nifi
+    linkRoot: /etc/pki/cdh
   scriptRunner:
     program: scripts/cc.sh
     args: [deploy]
+
+  parameters:
+  - name: gw_update_ca_trust
+    configName: UPDATE_CA_TRUST
+    label: Add Root CA to Operating System truststore
+    description: Will deploy the RootCA certificate to
+      /etc/pki/ca-trust/source/anchors and call update-ca-trusts. This
+      also updates the Java Truststore at /etc/pki/java/cacerts.
+    required: true
+    type: boolean
+    default: true
+
+  - name: gw_truststore_location
+    configName: TRUSTSTORE_LOCATION
+    label: GW Truststore Location
+    description: Location of the (existing) trustore to load the
+      Root CA certificates. We will use alias 'cdhpki-default' and use
+      Java's default truststore password.
+    required: false
+    type: path
+    pathType: localDataFile
+
   configWriter:
     auxConfigGenerators:
-    - filename: tls-conf/client.sh
+    - filename: pki-conf/cdhpki-client.envsubst.json
+      sourceFilename: aux/cdhpki-client.envsubst.json
+    - filename: pki-conf/client-csr.envsubst.json
+      sourceFilename: aux/csr.envsubst.json
+    - filename: pki-conf/init.sh
       sourceFilename: scripts/client.sh
     generators:
-    - filename: tls-conf/tls-service.hadoop_xml
-      configFormat: hadoop_xml
+    - filename: pki-conf/default-csr.vars
+      configFormat: properties
+      includedParams: *default_csr_params
+    - filename: pki-conf/gw.vars
+      configFormat: properties
       includedParams:
-      - tls_token
-      additionalConfigs:
-      - {key: days, value: '1095'}
-      - {key: keySize, value: '2048'}
-      - {key: keyPairAlgorithm, value: RSA}
-      - {key: signingAlgorithm, value: SHA256WITHRSA}
-      - {key: keyStoreType, value: jks}
-      - {key: caHostname, value: '@@CA_HOSTNAME@@'}
-      - {key: port, value: '@@CA_PORT@@'}
-      - {key: reorderDn, value: true}
+      - gw_update_ca_trust
+      - gw_truststore_location
     peerConfigGenerators:
-    - roleName: NIFI_TLS_CA
-      filename: tls-conf/tls-service.properties
-      params: [tls_port]
+    - roleName: PKI_ROOT_CA
+      filename: pki-conf/cdhpki-servers.pvars
+      params:
+      - root_ca_port
+      - auth_default_key

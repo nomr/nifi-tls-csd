@@ -1,9 +1,9 @@
 TAG:=$(shell git describe --tags | sed -e 's/^v//')
 TAG_DIST=$(shell echo $(TAG) | sed -r -e 's/.*-([[:digit:]]+)-g.*/\1/')
 TAG_HASH=$(shell echo $(TAG) | sed -r -e 's/^.*(g[0-9a-f]+|$$)/\1/')
-PKG_NAME=NIFI-TLS
+PKG_NAME=PKI
 PKG_VERSION=$(shell echo $(TAG) | sed -r -e 's/\+nifi.*//')
-CDH_SERVICE=nifi_tls
+CDH_SERVICE=pki
 
 ifeq ($(TRAVIS), true)
   VERSION=$(TAG)
@@ -65,18 +65,10 @@ $(PKG_NAME)-$(VERSION)/images/icon.png:
 	wget https://www.webwatchdog.io/wp-content/uploads/2016/12/tls-https.png
 	convert -resize 16x16 tls-https.png $@
 
-
-
-
 # Remote dependencies
 validator.jar:
 	cd tools/cm_ext && mvn -q install && cd -
 	ln tools/cm_ext/validator/target/validator.jar .
-
-nifi-$(PKG_VERSION)-bin.tar.gz: nifi-$(PKG_VERSION)-bin.tar.gz-SHA256
-	wget 'https://www.apache.org/dyn/mirrors/mirrors.cgi?action=download&filename=nifi/$(PKG_VERSION)/$@' -O $@
-	touch $@
-	sha256sum -c $<
 
 
 # Implicit rules

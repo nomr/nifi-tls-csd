@@ -6,9 +6,8 @@ csd/images/icon.png
 
 # Release and intermediates
 release
-NIFI-TLS-*
+PKI-*
 # Remote binaries
-nifi-*.tar.gz
 
 # SHA256 SUMS
 *-SHA256
