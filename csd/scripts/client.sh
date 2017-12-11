@@ -68,7 +68,14 @@ create_keystore() {
         -caname cdhpki-default \
         -out ${PKI_KEYSTORE_LOCATION%.jks}.p12 \
         -passout env:PKI_KEYSTORE_PASSWORD \
+        -chain \
         -name client
+
+    keytool -importcert -noprompt \
+        -file pki-conf/cdhpki-default.crt \
+        -alias cdhpki-default \
+        -keystore "${PKI_KEYSTORE_LOCATION}" \
+        -storepass:env PKI_KEYSTORE_PASSWORD
 
     keytool -importkeystore \
         -srckeystore ${PKI_KEYSTORE_LOCATION%.jks}.p12 \
