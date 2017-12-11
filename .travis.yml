@@ -11,7 +11,7 @@ deploy:
     secure: s5zSfxsy2lxfmBHks+wRqp8jw070QulnLIg8eGR+ehXcAwagKJjU0KkCKZCahXWfY2k2rCYFvDWASHMlnDAZEuZ/yogiRAnexLVk7p6QNB5p3LVnYR8euvuI4Ke/8q5fZqhTfYiUK3BWCneHkPPQc1M1149Mb3AFXphGo4Rh2vdsejKM14OxzD7xI5AvKJh8r0J1MIe0P1fEq9y2mtnmH9yZ/FPgNkk5UnR5uxbrrl3mEHJVG00KOajxE5IfAhIiSZe4NZllYYpKuCcHfmJBbQnmPGV2ElSPKu4LzbpLEAPph9/rWIF1GMRmE76n+LZJYCbLUa4EcPGW9bjxAuucetEPBjiRqJp33PPeAwczCvjABM9fHbVKLzr2d5ZtaJ/nb/K/EItMEZ1CDjZvxOUFNXla5/PoxBvah0sgF/QRQo1cSOgk/cTxoGiL6yszzYvIywYkEv6bEkNFaeTA08XTYH54kKEx9TD4jee0Fk7lMPoyjT3JlDxsGQ4eG4runMxr8lugpNafCWA+dCFf009eTrPm03LQRQgGxRDkDc+nFC8OrQ8Nc0K5p1d4kHCSenOV74hXMc9ADaCH6ic7h4WJI07COaHRFXTtONuaCf+6vnk/dHMOqg4d+UHvvGBtaPC1yGexK6YCZDu5RaVF9fXzukP7QRZzS8voGbYE/1JR03Y=
   file_glob: true
   file:
-    - NIFI-TLS-*.jar
+    - PKI-*.jar
   skip_cleanup: true
   on:
     tags: true
