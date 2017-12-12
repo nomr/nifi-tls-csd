@@ -12,15 +12,12 @@ move_aux_files() {
 root_ca_init() {
     pushd pki-conf
     create_csr_json cdhpki-server-csr
-    cfssl gencert --initca=true cdhpki-server-csr.json | cfssljson -bare ~/ca
     popd
+    cfssl gencert --initca=true pki-conf/cdhpki-server-csr.json | cfssljson -bare ~/ca
 }
 
 root_ca_renew() {
-    pushd pki-conf
-    create_csr_json cdhpki-server-csr
     cfssl gencert -renewca -ca ~/ca.pem -ca-key ~/ca-key.pem
-    popd pki-conf
 }
 
 create_cdhpki_server_json() {
@@ -38,7 +35,7 @@ create_cdhpki_server_json() {
 root_ca_run() {
     create_cdhpki_server_json
 
-    export PKI_AUTH_DEFAULT_KEY_HEX=$(base64_to_hex $PKI_AUTH_DEFAULT_KEY_BASE64)
+    export PKI_DEFAULT_AUTH_KEY=$(base64_to_hex $PKI_DEFAULT_AUTH_KEY_BASE64)
     exec cfssl serve \
            -address 0.0.0.0 \
            -port $PKI_CA_PORT \
