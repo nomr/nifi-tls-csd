@@ -21,7 +21,7 @@ create_ca_client_json() {
     local port=$(get_property cdhpki-servers "${host}:port")
     local auth_key_base64=$(get_property cdhpki-servers "${host}:auth_key_base64")
 
-    export PKI_DEFAULT_HOST_PORT=${host}:${port} 
+    export PKI_DEFAULT_HOST_PORT=${host}:${port}
     export PKI_DEFAULT_AUTH_KEY=$(base64_to_hex $auth_key_base64)
 
     # Render
@@ -73,6 +73,15 @@ create_keystore() {
         -passout env:PKI_KEYSTORE_PASSWORD \
         -chain \
         -name client
+
+    if [ -f ${PKI_KEYSTORE_LOCATION} ]; then
+        for cert_alias in cdhpki-default client; do
+            keytool -delete -noprompt \
+                    -alias $cert_alias \
+                    -keystore "${PKI_KEYSTORE_LOCATION}" \
+                    -storepass:env PKI_KEYSTORE_PASSWORD
+        done
+    fi
 
     keytool -importcert -noprompt \
         -file pki-conf/cdhpki-default.crt \
