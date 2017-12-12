@@ -51,7 +51,7 @@ deploy() {
     update-ca-trust
 
     rm -f gw.vars
-    rm -f root-ca-config.pvars
+    rm -f cdhpki-servers.pvars
 }
 
 case "$1" in
