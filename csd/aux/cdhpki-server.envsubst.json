@@ -2,14 +2,14 @@
     "auth_keys": {
         "default": {
             "type": "standard",
-            "key": "env:PKI_AUTH_DEFAULT_KEY_HEX"
+            "key": "env:PKI_DEFAULT_AUTH_KEY"
         }
     },
     "signing": {
         "default": {
             "auth_key": "default",
-            "expiry": "${PKI_SIGNING_DEFAULT_EXPIRY}h",
-            "usages": [ "${PKI_SIGNING_DEFAULT_USAGES}" ]
+            "expiry": "${PKI_DEFAULT_SIGNING_EXPIRY}h",
+            "usages": [ "${PKI_DEFAULT_SIGNING_USAGES}" ]
 	}
     }
 }

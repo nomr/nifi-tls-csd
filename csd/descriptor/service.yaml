@@ -75,7 +75,7 @@ parameters:
   type: string
 
 - name: sign_default_expiry
-  configName: SIGNING_DEFAULT_EXPIRY
+  configName: DEFAULT_SIGNING_EXPIRY
   label: Default Signing Policy Expiry
   description: How long the signed certificates are valid.
   type: long
@@ -85,7 +85,7 @@ parameters:
   default: 8760
 
 - name: sign_default_usages
-  configName: SIGNING_DEFAULT_USAGES
+  configName: DEFAULT_SIGNING_USAGES
   label: Default Signing Policy Usages
   description: 'The usages allowed in the default policy. The following are
     acceptable key usages: signing, digital signature, content committment,
@@ -114,7 +114,7 @@ roles:
 
   startRunner:
     environmentVariables:
-      PKI_AUTH_KEY_BASE64: "${auth_default_key}"
+      PKI_DEFAULT_AUTH_KEY_BASE64: "${auth_default_key}"
       PKI_CA_PORT: "${root_ca_port}"
     program: scripts/control.sh
     args: [root-ca-run]
