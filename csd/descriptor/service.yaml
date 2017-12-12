@@ -31,8 +31,14 @@ rolesWithExternalLinks:
 commands:
 - name: svc_create_ca
   label: Initialize Root CA
-  description: Creates the root certificate and keys
+  description: Creates the root certificate and keys.
   roleCommand: root_ca_init
+  roleName: PKI_ROOT_CA
+  runMode: single
+- name: svc_renew_ca
+  label: Renew Root CA
+  description: Renew's the root certificate.
+  roleCommand: root_ca_renew
   roleName: PKI_ROOT_CA
   runMode: single
 
@@ -131,6 +137,17 @@ roles:
       program: scripts/control.sh
       args:
       - root-ca-init
+  - name: root_ca_renew
+    label: Renew Root CA
+    description: Renew's the root certificate.
+    expectedExitCodes: [0]
+    requiredRoleState: stopped
+    commandRunner:
+      environmentVariables:
+        PKI_CSR_CN: "${host}"
+      program: scripts/control.sh
+      args:
+      - root-ca-renew
 
   topology:
     maxInstances: 1
